@@ -28,12 +28,12 @@ var (
 		"202104",
 		"202105",
 		"202106",
-		"202107",
-		"202108",
-		"202109",
-		"202110",
-		"202111",
-		"202112",
+		//"202107",
+		//"202108",
+		//"202109",
+		//"202110",
+		//"202111",
+		//"202112",
 	}
 	resultData = make([]string, 0, bufferSize) // create slice for storing results before sending to result channel
 
