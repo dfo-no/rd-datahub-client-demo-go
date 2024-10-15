@@ -21,8 +21,21 @@ const (
 )
 
 var (
-	periods    []string = []string{"202101", "202102", "202103", "202104", "202105", "202106", "202107", "202108", "202109", "202110", "202111", "202112"}
-	resultData          = make([]string, 0, bufferSize) // preallocate buffer for storing results before sending to result channel
+	periods []string = []string{
+		"202101",
+		"202102",
+		"202103",
+		"202104",
+		"202105",
+		"202106",
+		"202107",
+		"202108",
+		"202109",
+		"202110",
+		"202111",
+		"202112",
+	}
+	resultData = make([]string, 0, bufferSize) // create slice for storing results before sending to result channel
 
 )
 
