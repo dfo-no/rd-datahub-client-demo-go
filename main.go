@@ -20,6 +20,10 @@ const (
 	bufferSize uint   = 10000
 )
 
+var (
+	periods []string = []string{"202101", "202102", "202103", "202104", "202105", "202106", "202107", "202108", "202109", "202110", "202111", "202112"}
+)
+
 func getBatchAglTransact(spinner *ysmrr.Spinner, period string, ch chan<- []string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -83,7 +87,7 @@ func main() {
 	wg := new(sync.WaitGroup)
 	sm := ysmrr.NewSpinnerManager()
 
-	for _, period := range []string{"202101", "202102", "202103", "202104", "202105", "202106", "202107", "202108", "202109", "202110", "202111", "202112"} {
+	for _, period := range periods {
 		wg.Add(1)
 		spinner := sm.AddSpinner("period: " + period + " ...")
 		go getBatchAglTransact(spinner, period, resultChannel, wg)
