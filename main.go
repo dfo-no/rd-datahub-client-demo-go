@@ -21,7 +21,9 @@ const (
 )
 
 var (
-	periods []string = []string{"202101", "202102", "202103", "202104", "202105", "202106", "202107", "202108", "202109", "202110", "202111", "202112"}
+	periods    []string = []string{"202101", "202102", "202103", "202104", "202105", "202106", "202107", "202108", "202109", "202110", "202111", "202112"}
+	resultData          = make([]string, 0, bufferSize) // preallocate buffer for storing results before sending to result channel
+
 )
 
 func getBatchAglTransact(spinner *ysmrr.Spinner, period string, ch chan<- []string, wg *sync.WaitGroup) {
@@ -48,7 +50,6 @@ func getBatchAglTransact(spinner *ysmrr.Spinner, period string, ch chan<- []stri
 		},
 	)
 
-	AgrtIDs := make([]string, 0, bufferSize) // preallocate buffer for storing results before sending to result channel
 	numApiCalls := 0
 
 	// Get data using cursor, starting at 0 and using the next_cursor-metadata to set cursor for next iteration. Finish when cursor == 0
@@ -63,7 +64,7 @@ func getBatchAglTransact(spinner *ysmrr.Spinner, period string, ch chan<- []stri
 
 		body := res.Result().(*internal.AgltransactResponse)
 		for _, d := range body.Data {
-			AgrtIDs = append(AgrtIDs, string(d.AgrtID))
+			resultData = append(resultData, string(d.AgrtID))
 		}
 
 		cursor = body.Metadata.NextCursor
@@ -74,7 +75,7 @@ func getBatchAglTransact(spinner *ysmrr.Spinner, period string, ch chan<- []stri
 	}
 
 	// Write results to results channel which gets picked up by main() after all goruotines are finished
-	ch <- AgrtIDs
+	ch <- resultData
 }
 
 func main() {
