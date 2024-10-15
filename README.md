@@ -1,2 +1,3 @@
-# rd-datahub-client-demo-go
-Demo client app for RD Datahub implemented in Go
+# rd-datahubclient
+
+Client for testing performance of the RD Datahub API endpoints
