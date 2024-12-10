@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -15,111 +13,101 @@ import (
 )
 
 const (
-	jwt        string = "<token>"
-	url        string = "<api endpoint url>"
-	bufferSize uint   = 10000
+	jwt        string = "jwt"
+	url        string = "url"
+	pageSize   int    = 10000
+	numWorkers int    = 4
 )
 
-var (
-	periods []string = []string{
-		"202101",
-		"202102",
-		"202103",
-		"202104",
-		"202105",
-		"202106",
-		//"202107",
-		//"202108",
-		//"202109",
-		//"202110",
-		//"202111",
-		//"202112",
-	}
-	resultData = make([]string, 0, bufferSize) // create slice for storing results before sending to result channel
-
-)
-
-func getBatchAglTransact(spinner *ysmrr.Spinner, period string, ch chan<- []string, wg *sync.WaitGroup) {
+func worker(workerId int, spinner *ysmrr.Spinner, results chan<- []string, periods <-chan string, wg *sync.WaitGroup) {
 	defer wg.Done()
-
-	cursor := 1
-
-	// Set up Resty client with params and retry conditions
-	httpClient := resty.New()
-	httpClient.SetRetryCount(3).SetRetryWaitTime(1 * time.Second).SetRetryMaxWaitTime(25 * time.Second)
-	httpClient.SetAuthToken(jwt)
-	httpClient.SetQueryParam("period", period)
-	httpClient.SetQueryParam("page_size", string(bufferSize))
-	httpClient.OnError(func(r *resty.Request, err error) {
-		spinner.ErrorWithMessage("period: " + period + " cursor: " + strconv.Itoa(cursor) + " error: " + err.Error())
-	})
-	httpClient.AddRetryCondition(
-		func(r *resty.Response, err error) bool {
-			spinner.UpdateMessage("period: " + period + " cursor: " + strconv.Itoa(cursor) + " retrying after failure")
-			return err != nil ||
-				r.StatusCode() == http.StatusRequestTimeout ||
-				r.StatusCode() >= http.StatusInternalServerError ||
-				r.StatusCode() == http.StatusTooManyRequests
-		},
-	)
 
 	numApiCalls := 0
 
-	// Get data using cursor, starting at 0 and using the next_cursor-metadata to set cursor for next iteration. Finish when cursor == 0
-	for cursor != 0 {
-		start := time.Now()
+	httpClient := resty.New()
+	httpClient.SetRetryCount(3).SetRetryWaitTime(1 * time.Second).SetRetryMaxWaitTime(25 * time.Second)
+	httpClient.SetAuthToken(jwt)
+	httpClient.SetQueryParam("page_size", strconv.Itoa(pageSize))
 
-		httpClient.SetQueryParam("cursor", strconv.Itoa(cursor))
-		res, _ := httpClient.R().SetResult(&internal.AgltransactResponse{}).Get(url)
-		numApiCalls++
+	for period := range periods {
+		cursor := "1"
+		AgrtIDs := make([]string, 0, pageSize)
 
-		spinner.UpdateMessage("period: " + period + " cursor: " + strconv.Itoa(cursor) + " runtime: " + time.Since(start).String())
+		httpClient.SetQueryParam("period", period)
+		httpClient.OnError(func(r *resty.Request, err error) {
+			spinner.ErrorWithMessage("worker: " + strconv.Itoa(workerId) + " period: " + period + " cursor: " + cursor + " error: " + err.Error())
+		})
+		httpClient.AddRetryCondition(
+			func(r *resty.Response, err error) bool {
+				spinner.UpdateMessage("worker: " + strconv.Itoa(workerId) + " period: " + period + " cursor: " + cursor + " retrying after failure")
+				return err != nil ||
+					r.StatusCode() == http.StatusRequestTimeout ||
+					r.StatusCode() >= http.StatusInternalServerError ||
+					r.StatusCode() == http.StatusTooManyRequests
+			},
+		)
 
-		body := res.Result().(*internal.AgltransactResponse)
-		for _, d := range body.Data {
-			resultData = append(resultData, string(d.AgrtID))
+		for cursor != "0" {
+			start := time.Now()
+
+			httpClient.SetQueryParam("cursor", cursor)
+			res, _ := httpClient.R().SetResult(&internal.AgltransactResponse{}).Get(url)
+
+			body := res.Result().(*internal.AgltransactResponse)
+			for _, d := range body.Data {
+				AgrtIDs = append(AgrtIDs, strconv.Itoa(d.AgrtID))
+			}
+
+			spinner.UpdateMessage("worker: " + strconv.Itoa(workerId) + " period: " + period + " cursor: " + cursor + " runtime: " + time.Since(start).String())
+			cursor = strconv.Itoa(body.Metadata.NextCursor)
+			numApiCalls++
 		}
 
-		cursor = body.Metadata.NextCursor
+		results <- AgrtIDs
 	}
 
 	if !spinner.IsError() {
-		spinner.CompleteWithMessage("period: " + period + " completed with " + strconv.Itoa(numApiCalls) + " API calls")
+		spinner.CompleteWithMessage("worker: " + strconv.Itoa(workerId) + " completed after " + strconv.Itoa(numApiCalls) + " API calls")
 	}
-
-	// Write results to results channel which gets picked up by main() after all goruotines are finished
-	ch <- resultData
 }
 
 func main() {
 	fmt.Println("starting datahub client")
 
-	// Create channel to receive results
-	resultChannel := make(chan []string, bufferSize)
+	results := make(chan []string, pageSize)
+	periods := make(chan string)
 
 	start := time.Now()
-	wg := new(sync.WaitGroup)
 	sm := ysmrr.NewSpinnerManager()
 
-	for _, period := range periods {
+	wg := new(sync.WaitGroup)
+
+	for workerId := 1; workerId <= numWorkers; workerId++ {
 		wg.Add(1)
-		spinner := sm.AddSpinner("period: " + period + " ...")
-		go getBatchAglTransact(spinner, period, resultChannel, wg)
+		spinner := sm.AddSpinner("worker: " + strconv.Itoa(workerId) + " period: ...")
+		go worker(workerId, spinner, results, periods, wg)
 	}
 
 	sm.Start()
+
+	for _, period := range []string{"202101", "202102", "202103", "202104", "202105", "202106"} {
+		periods <- period
+	}
+	close(periods)
+
 	wg.Wait()
-	close(resultChannel)
+
+	close(results)
+
 	sm.Stop()
-	stop := time.Now()
 
 	var resultList []string
-	for slice := range resultChannel {
+	for slice := range results {
 		resultList = append(resultList, slice...)
 	}
 
-	// Write results to file
-	f, err := os.Create("result_" + time.Now().Format(time.RFC3339) + ".txt")
+	// Example code for writing result to file
+	/*f, err := os.Create("result_" + time.Now().Format(time.RFC3339) + ".txt")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -138,9 +126,9 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		return
-	}
+	}*/
 
 	fmt.Println("found a total of: " + strconv.Itoa(len(resultList)) + " records")
-	fmt.Println("total time: " + stop.Sub(start).String())
+	fmt.Println("total time: " + time.Since(start).String())
 	fmt.Println("datahub client finished")
 }
