@@ -68,3 +68,34 @@ type Agltransact struct {
 	UnroCurAmount float64   `json:"unro_cur_amount"`
 	Base          string    `json:"base"`
 }
+
+type Aagstd struct {
+	Amount     float64 `json:"amount"`
+	CashAmount float64 `json:"cash_amount"`
+	Client     string  `json:"client"`
+	Dim1       string  `json:"dim1"`
+	Dim2       string  `json:"dim2"`
+	Dim3       string  `json:"dim3"`
+	Dim4       string  `json:"dim4"`
+	Dim5       string  `json:"dim5"`
+	Dim6       string  `json:"dim6"`
+	Dim7       string  `json:"dim7"`
+	Dim8       string  `json:"dim8"`
+	Period     int     `json:"period"`
+	PlaAmount  float64 `json:"pla_amount"`
+	PlbAmount  float64 `json:"plb_amount"`
+	PlcAmount  float64 `json:"plc_amount"`
+	PldAmount  float64 `json:"pld_amount"`
+	PleAmount  float64 `json:"ple_amount"`
+	PlfAmount  float64 `json:"plf_amount"`
+	PlgAmount  float64 `json:"plg_amount"`
+	PlhAmount  float64 `json:"plh_amount"`
+	PliAmount  float64 `json:"pli_amount"`
+	AgrtID     int     `json:"agrtid"`
+	Base       string  `json:"base"`
+}
+
+type AagstdResponse struct {
+	Metadata Metadata `json:"metadata"`
+	Data     []Aagstd `json:"data"`
+}
