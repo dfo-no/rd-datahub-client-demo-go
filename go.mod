@@ -1,6 +1,6 @@
 module github.com/5-lagu/rd-datahubclient
 
-go 1.22.7
+go 1.23.4
 
 require (
 	github.com/chelnak/ysmrr v0.5.0
@@ -9,6 +9,7 @@ require (
 
 require (
 	github.com/fatih/color v1.18.0 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	golang.org/x/net v0.32.0 // indirect
