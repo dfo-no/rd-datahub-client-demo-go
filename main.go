@@ -14,9 +14,9 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const (
-	pageSize   int = 2500
-	numWorkers int = 6
+var (
+	pageSize   int = 1000
+	numWorkers int = 4
 )
 
 func main() {
@@ -28,6 +28,15 @@ func main() {
 
 	jwt := os.Getenv("JWT")
 	url := os.Getenv("URL")
+	pageSizeEnv := os.Getenv("PAGE_SIZE")
+	numWorkersEnv := os.Getenv("NUM_WORKERS")
+
+	if pageSizeEnv != "" {
+		pageSize, _ = strconv.Atoi(pageSizeEnv)
+	}
+	if numWorkersEnv != "" {
+		numWorkers, _ = strconv.Atoi(numWorkersEnv)
+	}
 
 	fmt.Println("starting datahub client")
 
@@ -38,7 +47,6 @@ func main() {
 	spinners := ysmrr.NewSpinnerManager()
 
 	wg := new(sync.WaitGroup)
-	//var wg sync.WaitGroup
 
 	for workerId := 1; workerId <= numWorkers; workerId++ {
 		wg.Add(1)

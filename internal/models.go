@@ -12,16 +12,16 @@ type Metadata struct {
 }
 
 type AgltransactResponse struct {
-	Metadata Metadata      `json:"metadata"`
 	Data     []Agltransact `json:"data"`
+	Metadata Metadata      `json:"metadata"`
 }
 
 type Agltransact struct {
-	Account       string    `json:"account"`
-	Amount        float64   `json:"amount"`
-	AparID        string    `json:"apar_id"`
-	AparType      string    `json:"apar_type"`
-	Att1ID        string    `json:"att_1_id"`
+	LastUpdate    time.Time `json:"last_update"`
+	VoucherDate   time.Time `json:"voucher_date"`
+	TransDate     time.Time `json:"trans_date"`
+	ExtInvRef     string    `json:"ext_inv_ref"`
+	UserID        string    `json:"user_id"`
 	Att2ID        string    `json:"att_2_id"`
 	Att3ID        string    `json:"att_3_id"`
 	Att4ID        string    `json:"att_4_id"`
@@ -29,9 +29,9 @@ type Agltransact struct {
 	Att6ID        string    `json:"att_6_id"`
 	Att7ID        string    `json:"att_7_id"`
 	Client        string    `json:"client"`
-	CurAmount     float64   `json:"cur_amount"`
+	Base          string    `json:"base"`
 	Currency      string    `json:"currency"`
-	DcFlag        int       `json:"dc_flag"`
+	AparType      string    `json:"apar_type"`
 	Description   string    `json:"description"`
 	Dim1          string    `json:"dim_1"`
 	Dim2          string    `json:"dim_2"`
@@ -40,62 +40,62 @@ type Agltransact struct {
 	Dim5          string    `json:"dim_5"`
 	Dim6          string    `json:"dim_6"`
 	Dim7          string    `json:"dim_7"`
-	ExtInvRef     string    `json:"ext_inv_ref"`
-	FiscalYear    int       `json:"fiscal_year"`
-	LastUpdate    time.Time `json:"last_update"`
-	LineNo        int       `json:"line_no"`
-	Number1       int       `json:"number_1"`
-	OrderID       int       `json:"order_id"`
-	Period        int       `json:"period"`
-	SequenceNo    int       `json:"sequence_no"`
-	Status        string    `json:"status"`
-	TaxCode       string    `json:"tax_code"`
-	TaxSystem     string    `json:"tax_system"`
-	TransDate     time.Time `json:"trans_date"`
-	TransID       int       `json:"trans_id"`
-	UpdateFlag    int       `json:"update_flag"`
-	UserID        string    `json:"user_id"`
-	Value1        float64   `json:"value_1"`
-	Value2        float64   `json:"value_2"`
-	Value3        float64   `json:"value_3"`
-	VoucherDate   time.Time `json:"voucher_date"`
-	VoucherNo     int       `json:"voucher_no"`
-	VoucherType   string    `json:"voucher_type"`
-	AgrtID        int       `json:"agrtid"`
-	ExtRef        string    `json:"ext_ref"`
+	Account       string    `json:"account"`
 	ExtArchRef    string    `json:"ext_arch_ref"`
-	UnroAmount    float64   `json:"unro_amount"`
+	ExtRef        string    `json:"ext_ref"`
+	VoucherType   string    `json:"voucher_type"`
+	Att1ID        string    `json:"att_1_id"`
+	AparID        string    `json:"apar_id"`
+	TaxSystem     string    `json:"tax_system"`
+	TaxCode       string    `json:"tax_code"`
+	Status        string    `json:"status"`
+	CurAmount     float64   `json:"cur_amount"`
+	OrderID       int       `json:"order_id"`
+	VoucherNo     int       `json:"voucher_no"`
+	Amount        float64   `json:"amount"`
+	UpdateFlag    int       `json:"update_flag"`
+	SequenceNo    int       `json:"sequence_no"`
+	Value1        float64   `json:"value_1"`
+	Period        int       `json:"period"`
+	Value3        float64   `json:"value_3"`
+	Value2        float64   `json:"value_2"`
+	TransID       int       `json:"trans_id"`
+	AgrtID        int       `json:"agrtid"`
+	LineNo        int       `json:"line_no"`
 	UnroCurAmount float64   `json:"unro_cur_amount"`
-	Base          string    `json:"base"`
+	FiscalYear    int       `json:"fiscal_year"`
+	UnroAmount    float64   `json:"unro_amount"`
+	DcFlag        int       `json:"dc_flag"`
+	Number1       int       `json:"number_1"`
 }
 
 type Aagstd struct {
-	Amount     float64 `json:"amount"`
-	CashAmount float64 `json:"cash_amount"`
-	Client     string  `json:"client"`
+	Dim8       string  `json:"dim8"`
+	Base       string  `json:"base"`
+	Dim7       string  `json:"dim7"`
 	Dim1       string  `json:"dim1"`
 	Dim2       string  `json:"dim2"`
 	Dim3       string  `json:"dim3"`
 	Dim4       string  `json:"dim4"`
 	Dim5       string  `json:"dim5"`
 	Dim6       string  `json:"dim6"`
-	Dim7       string  `json:"dim7"`
-	Dim8       string  `json:"dim8"`
-	Period     int     `json:"period"`
-	PlaAmount  float64 `json:"pla_amount"`
+	Client     string  `json:"client"`
+	PldAmount  float64 `json:"pld_amount"`
+	CashAmount float64 `json:"cash_amount"`
+	Amount     float64 `json:"amount"`
 	PlbAmount  float64 `json:"plb_amount"`
 	PlcAmount  float64 `json:"plc_amount"`
-	PldAmount  float64 `json:"pld_amount"`
+	PlaAmount  float64 `json:"pla_amount"`
 	PleAmount  float64 `json:"ple_amount"`
-	PlfAmount  float64 `json:"plf_amount"`
-	PlgAmount  float64 `json:"plg_amount"`
 	PlhAmount  float64 `json:"plh_amount"`
+	PlgAmount  float64 `json:"plg_amount"`
+	PlfAmount  float64 `json:"plf_amount"`
 	PliAmount  float64 `json:"pli_amount"`
 	AgrtID     int     `json:"agrtid"`
-	Base       string  `json:"base"`
+	Period     int     `json:"period"`
 }
 
 type AagstdResponse struct {
-	Metadata Metadata `json:"metadata"`
 	Data     []Aagstd `json:"data"`
+	Metadata Metadata `json:"metadata"`
 }
