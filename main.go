@@ -20,7 +20,11 @@ var (
 )
 
 func main() {
-	godotenv.Load(".env")
+	err := godotenv.Load(".env")
+	if err != nil {
+		fmt.Println("Error loading .env file")
+		return
+	}
 
 	jwt := os.Getenv("JWT")
 	url := os.Getenv("URL")
