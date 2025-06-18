@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	pageSize   int = 1000
-	numWorkers int = 4
+	pageSize   = 1000
+	numWorkers = 4
 )
 
 func main() {
@@ -112,28 +112,46 @@ func main() {
 	fmt.Println("datahub client finished")
 }
 
-func worker(workerId int, spinner *ysmrr.Spinner, results chan<- []string, periods <-chan string, jwt string, url string, wg *sync.WaitGroup) {
+func worker(
+	workerId int,
+	spinner *ysmrr.Spinner,
+	results chan<- []string,
+	periods <-chan string,
+	jwt string,
+	url string,
+	wg *sync.WaitGroup,
+) {
 	defer wg.Done()
 
 	numApiCalls := 0
 
 	httpClient := resty.New()
 
-	httpClient.SetRetryCount(3).SetRetryWaitTime(1 * time.Second).SetRetryMaxWaitTime(25 * time.Second)
+	httpClient.SetRetryCount(3).
+		SetRetryWaitTime(1 * time.Second).
+		SetRetryMaxWaitTime(25 * time.Second)
 	httpClient.SetAuthToken(jwt)
 	httpClient.SetQueryParam("page_size", strconv.Itoa(pageSize))
 
 	for period := range periods {
-		cursor := "1"
+		lastSeenID := "1"
 		agrtids := make([]string, 0, pageSize)
 
 		httpClient.SetQueryParam("period", period)
 		httpClient.OnError(func(r *resty.Request, err error) {
-			spinner.ErrorWithMessage("worker: " + strconv.Itoa(workerId) + " period: " + period + " cursor: " + cursor + " error: " + err.Error())
+			spinner.ErrorWithMessage(
+				"worker: " + strconv.Itoa(
+					workerId,
+				) + " period: " + period + " last_seen_id: " + lastSeenID + " error: " + err.Error(),
+			)
 		})
 		httpClient.AddRetryCondition(
 			func(r *resty.Response, err error) bool {
-				spinner.UpdateMessage("worker: " + strconv.Itoa(workerId) + " period: " + period + " cursor: " + cursor + " retrying after failure")
+				spinner.UpdateMessage(
+					"worker: " + strconv.Itoa(
+						workerId,
+					) + " period: " + period + " last_seen_id: " + lastSeenID + " retrying after failure",
+				)
 				return err != nil ||
 					r.StatusCode() == http.StatusRequestTimeout ||
 					r.StatusCode() >= http.StatusInternalServerError ||
@@ -141,19 +159,24 @@ func worker(workerId int, spinner *ysmrr.Spinner, results chan<- []string, perio
 			},
 		)
 
-		for cursor != "0" {
+		for lastSeenID != "0" {
 			pageRuntimeStart := time.Now()
 
-			httpClient.SetQueryParam("cursor", cursor)
-			response, _ := httpClient.R().SetResult(&internal.AagstdResponse{}).Get(url)
+			httpClient.SetQueryParam("last_seen_id", lastSeenID)
+			response, _ := httpClient.R().SetResult(&internal.AgltransactResponse{}).Get(url)
 
-			body := response.Result().(*internal.AagstdResponse)
+			body := response.Result().(*internal.AgltransactResponse)
 			for _, d := range body.Data {
-				agrtids = append(agrtids, strconv.Itoa(d.AgrtID))
+				agrtids = append(agrtids, strconv.FormatInt(d.AgrtID, 10))
 			}
 
-			spinner.UpdateMessage("worker: " + strconv.Itoa(workerId) + " period: " + period + " cursor: " + cursor + " runtime: " + time.Since(pageRuntimeStart).String())
-			cursor = strconv.Itoa(body.Metadata.NextCursor)
+			spinner.UpdateMessage(
+				"worker: " + strconv.Itoa(
+					workerId,
+				) + " period: " + period + " last_seen_id: " + lastSeenID + " runtime: " + time.Since(pageRuntimeStart).
+					String(),
+			)
+			lastSeenID = strconv.Itoa(body.Metadata.LastSeenID)
 			numApiCalls++
 		}
 
@@ -161,6 +184,12 @@ func worker(workerId int, spinner *ysmrr.Spinner, results chan<- []string, perio
 	}
 
 	if !spinner.IsError() {
-		spinner.CompleteWithMessage("worker: " + strconv.Itoa(workerId) + " completed after " + strconv.Itoa(numApiCalls) + " API calls")
+		spinner.CompleteWithMessage(
+			"worker: " + strconv.Itoa(
+				workerId,
+			) + " completed after " + strconv.Itoa(
+				numApiCalls,
+			) + " API calls",
+		)
 	}
 }
