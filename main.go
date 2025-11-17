@@ -69,15 +69,16 @@ func main() {
 	for _, period := range periods {
 		periodsChan <- period
 	}
+	close(periodsChan)
 
 	// Wait for all workers to finish fetching data, close channel and stop spinner-CLI
 	wg.Wait()
-	close(periodsChan)
 	close(resultsChan)
-	sm.Stop()
 
 	// Wait for file writer
 	count := <-writeDoneChan
+
+	sm.Stop()
 
 	// Print runtime statistics
 	fmt.Println("found a total of: " + strconv.Itoa(count) + " records")
