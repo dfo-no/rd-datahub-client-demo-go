@@ -41,10 +41,12 @@ func main() {
 
 	// Get all accounting periods
 	periods := getPeriods()
+	//periods := []string{"201511", "201512", "201601", "201602"}
 
 	// Create channel for work distribution and collecting results from workers
-	resultsChan := make(chan []string, pageSize*len(periods))
+	resultsChan := make(chan []string, numWorkers*pageSize)
 	periodsChan := make(chan string, len(periods))
+	writeDoneChan := make(chan int)
 
 	// Create spinner-CLI and waitgroup for workers
 	sm := ysmrr.NewSpinnerManager()
@@ -60,47 +62,25 @@ func main() {
 	sm.Start()
 	startTime := time.Now()
 
+	// Start results writer
+	go resultsWriter(resultsChan, writeDoneChan)
+
 	// Send all periods to the worker pool for processing and close channel when finished
 	for _, period := range periods {
 		periodsChan <- period
 	}
-	close(periodsChan)
 
 	// Wait for all workers to finish fetching data, close channel and stop spinner-CLI
 	wg.Wait()
+	close(periodsChan)
 	close(resultsChan)
 	sm.Stop()
 
-	// Create list (string-array) of all results returned from the workers
-	var resultList []string
-	for slice := range resultsChan {
-		resultList = append(resultList, slice...)
-	}
-
-	// Write results list to file (can be commented out)
-	f, err := os.Create("result_" + time.Now().Format(time.RFC3339) + ".csv")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer f.Close()
-
-	w := bufio.NewWriter(f)
-	for _, d := range resultList {
-		_, err = w.WriteString(d + "\n")
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-	}
-	err = w.Flush()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	// Wait for file writer
+	count := <-writeDoneChan
 
 	// Print runtime statistics
-	fmt.Println("found a total of: " + strconv.Itoa(len(resultList)) + " records")
+	fmt.Println("found a total of: " + strconv.Itoa(count) + " records")
 	fmt.Println("total time: " + time.Since(startTime).String())
 	fmt.Println("datahub client finished")
 }
@@ -147,11 +127,11 @@ func newWorker(
 	// there are no periods left on the channel
 	for period := range periodsChan {
 		hc.SetQueryParam("period", period)
-		resultsCsv, numApiCalls := getAcatransData(hc, spinner, workerId, period)
+		results, numApiCalls := getAcatransData(hc, spinner, workerId, period)
 
 		numApiCallsTotal = numApiCallsTotal + numApiCalls
 
-		resultsChan <- resultsCsv
+		resultsChan <- results
 	}
 
 	// Print final worker message and complete spinner-CLI
@@ -174,8 +154,8 @@ func getAcatransData(
 	period string,
 ) ([]string, int) {
 	nextCursor := "1"
-	resultsCsv := make([]string, 0)
 	numApiCalls := 0
+	results := make([]string, 0)
 
 	// Continue with next page as long as next_cursor is not 0. 0 indicates that the last page was read.
 	for nextCursor != "0" {
@@ -191,7 +171,7 @@ func getAcatransData(
 		// If the GET returned data, convert the result to CSV and return on channel (for testing and verification purposes only)
 		if len(body.Data) > 0 {
 			for _, d := range body.Data {
-				resultsCsv = append(resultsCsv, d.ToCSVString())
+				results = append(results, d.ToCSVString())
 			}
 		}
 
@@ -206,7 +186,7 @@ func getAcatransData(
 		numApiCalls++
 	}
 
-	return resultsCsv, numApiCalls
+	return results, numApiCalls
 }
 
 // Set common http client parameters
@@ -236,4 +216,37 @@ func setHttpClientParameters(hc *resty.Client, spinner *ysmrr.Spinner, workerId 
 		)
 	})
 
+}
+
+func resultsWriter(resultChan chan []string, writeDoneChan chan int) {
+	f, err := os.Create("result_" + time.Now().Format("20060102_150405") + ".csv")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	count := 0
+
+	w := bufio.NewWriter(f)
+
+	for result := range resultChan {
+		for _, value := range result {
+			_, err = w.WriteString(value + "\n")
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			count++
+
+		}
+	}
+	err = w.Flush()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	f.Close()
+
+	writeDoneChan <- count
 }
