@@ -5,7 +5,3 @@ type Metadata struct {
 	TotalRecords int `json:"total_records,omitempty"`
 	LastSeenID   int `json:"last_seen_id,omitempty"`
 }
-
-type MetadataCursor struct {
-	NextCursor int64 `json:"next_cursor"`
-} // @name MetadataCursor

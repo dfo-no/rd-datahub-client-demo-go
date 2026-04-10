@@ -102,6 +102,6 @@ func (a *Acatrans) ToCSVString() string {
 }
 
 type AcatransResponse struct {
-	Metadata MetadataCursor `json:"metadata,omitzero"`
-	Data     []*Acatrans    `json:"data,omitzero"`
+	Metadata Metadata    `json:"metadata,omitzero"`
+	Data     []*Acatrans `json:"data,omitzero"`
 }

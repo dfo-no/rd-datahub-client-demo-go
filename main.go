@@ -21,6 +21,7 @@ var (
 	numWorkers int
 	baseUrl    string
 	jwt        string
+	clientCode string
 )
 
 func main() {
@@ -36,12 +37,12 @@ func main() {
 	baseUrl = os.Getenv("BASEURL")
 	pageSize, _ = strconv.Atoi(os.Getenv("PAGE_SIZE"))
 	numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS"))
+	clientCode = os.Getenv("CLIENT_CODE")
 
 	fmt.Println("starting datahub client")
 
 	// Get all accounting periods
 	periods := getPeriods()
-	//periods := []string{"201511", "201512", "201601", "201602"}
 
 	// Create channel for work distribution and collecting results from workers
 	resultsChan := make(chan []string, numWorkers*pageSize)
@@ -92,12 +93,16 @@ func getPeriods() []string {
 	httpClient.SetAuthToken(jwt)
 	httpClient.SetBaseURL(baseUrl)
 	httpClient.SetQueryParam("page_size", strconv.Itoa(pageSize))
+	httpClient.SetQueryParam("client_code", clientCode)
 	httpClient.SetHeader("Accept-Encoding", "gzip")
 
-	response, _ := httpClient.R().SetResult(&internal.AcrperiodResponse{}).Get("v1/batch/acrperiod")
+	response, err := httpClient.R().SetResult(&internal.AcrperiodResponse{}).Get("api/v1/datahub/erp/acrperiod")
+	if err != nil {
+		panic("failed to get periods")
+	}
 	acrperiods := response.Result().(*internal.AcrperiodResponse)
 
-	periods := make([]string, 0)
+	periods := make([]string, len(acrperiods.Data))
 
 	for _, acrperiod := range acrperiods.Data {
 		periods = append(periods, strconv.Itoa(acrperiod.Period))
@@ -154,18 +159,21 @@ func getAcatransData(
 	workerId int,
 	period string,
 ) ([]string, int) {
-	nextCursor := "1"
+	lastSeenID := "1"
 	numApiCalls := 0
 	results := make([]string, 0)
 
 	// Continue with next page as long as next_cursor is not 0. 0 indicates that the last page was read.
-	for nextCursor != "0" {
+	for lastSeenID != "0" {
 		pageRuntimeStart := time.Now()
 
-		httpClient.SetQueryParam("cursor", nextCursor)
-		response, _ := httpClient.R().
+		httpClient.SetQueryParam("last_seen_id", lastSeenID)
+		response, err := httpClient.R().
 			SetResult(&internal.AcatransResponse{}).
-			Get("v1/batch/acatrans")
+			Get("api/v1/datahub/erp/acatrans")
+		if err != nil {
+			panic("failed to get data")
+		}
 
 		body := response.Result().(*internal.AcatransResponse)
 
@@ -180,10 +188,10 @@ func getAcatransData(
 		spinner.UpdateMessage(
 			"worker: " + strconv.Itoa(
 				workerId,
-			) + " period: " + period + " next_cursor: " + nextCursor + " runtime: " + time.Since(pageRuntimeStart).
+			) + " period: " + period + " last_seen_id: " + lastSeenID + " runtime: " + time.Since(pageRuntimeStart).
 				String(),
 		)
-		nextCursor = strconv.FormatInt(body.Metadata.NextCursor, 10)
+		lastSeenID = strconv.Itoa(body.Metadata.LastSeenID)
 		numApiCalls++
 	}
 
@@ -199,6 +207,7 @@ func setHttpClientParameters(hc *resty.Client, spinner *ysmrr.Spinner, workerId 
 	hc.SetAuthToken(jwt)
 	hc.SetBaseURL(baseUrl)
 	hc.SetQueryParam("page_size", strconv.Itoa(pageSize))
+	hc.SetQueryParam("client_code", clientCode)
 	hc.SetHeader("Accept-Encoding", "gzip")
 	hc.AddRetryCondition(
 		func(r *resty.Response, err error) bool {

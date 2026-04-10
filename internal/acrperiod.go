@@ -48,6 +48,6 @@ type Acrperiod struct {
 } // @name Acrperiod
 
 type AcrperiodResponse struct {
-	Data     []Acrperiod    `json:"data"`
-	Metadata MetadataCursor `json:"metadata"`
+	Data     []Acrperiod `json:"data"`
+	Metadata Metadata    `json:"metadata"`
 }
