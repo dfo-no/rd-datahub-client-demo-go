@@ -96,13 +96,13 @@ func getPeriods() []string {
 	httpClient.SetQueryParam("client_code", clientCode)
 	httpClient.SetHeader("Accept-Encoding", "gzip")
 
-	response, err := httpClient.R().SetResult(&internal.AcrperiodResponse{}).Get("api/v1/datahub/erp/acrperiod")
+	response, err := httpClient.R().SetResult(&internal.AcrperiodResponse{}).Get("api/v2/datahub/erp/acrperiod")
 	if err != nil {
 		panic("failed to get periods")
 	}
 	acrperiods := response.Result().(*internal.AcrperiodResponse)
 
-	periods := make([]string, len(acrperiods.Data))
+	periods := make([]string, 0, acrperiods.Metadata.Length)
 
 	for _, acrperiod := range acrperiods.Data {
 		periods = append(periods, strconv.Itoa(acrperiod.Period))
@@ -132,7 +132,7 @@ func newWorker(
 	// Get period from periods channel and fetch all data using cursor, continues until
 	// there are no periods left on the channel
 	for period := range periodsChan {
-		hc.SetQueryParam("period", period)
+		hc.SetQueryParam("pay_period", period)
 		results, numApiCalls := getAcatransData(hc, spinner, workerId, period)
 
 		numApiCallsTotal = numApiCallsTotal + numApiCalls
@@ -159,18 +159,19 @@ func getAcatransData(
 	workerId int,
 	period string,
 ) ([]string, int) {
-	lastSeenID := "1"
+	var lastSeenID int64 = 1
 	numApiCalls := 0
-	results := make([]string, 0)
+	results := make([]string, 0, pageSize)
 
 	// Continue with next page as long as next_cursor is not 0. 0 indicates that the last page was read.
-	for lastSeenID != "0" {
+	for lastSeenID != 0 {
 		pageRuntimeStart := time.Now()
+		lastSeenIDstr := strconv.FormatInt(lastSeenID, 10)
 
-		httpClient.SetQueryParam("last_seen_id", lastSeenID)
+		httpClient.SetQueryParam("last_seen_id", lastSeenIDstr)
 		response, err := httpClient.R().
 			SetResult(&internal.AcatransResponse{}).
-			Get("api/v1/datahub/erp/acatrans")
+			Get("api/v2/datahub/erp/acatrans")
 		if err != nil {
 			panic("failed to get data")
 		}
@@ -182,16 +183,16 @@ func getAcatransData(
 			for _, d := range body.Data {
 				results = append(results, d.ToCSVString())
 			}
-		}
 
-		// Update spinner-CLI with current period and cursor status
-		spinner.UpdateMessage(
-			"worker: " + strconv.Itoa(
-				workerId,
-			) + " period: " + period + " last_seen_id: " + lastSeenID + " runtime: " + time.Since(pageRuntimeStart).
-				String(),
-		)
-		lastSeenID = strconv.Itoa(body.Metadata.LastSeenID)
+			// Update spinner-CLI with current period and cursor status
+			spinner.UpdateMessage(
+				"worker: " + strconv.Itoa(
+					workerId,
+				) + " period: " + period + " last_seen_id: " + lastSeenIDstr + " runtime: " + time.Since(pageRuntimeStart).
+					String(),
+			)
+		}
+		lastSeenID = body.Metadata.LastSeenID
 		numApiCalls++
 	}
 
@@ -225,7 +226,6 @@ func setHttpClientParameters(hc *resty.Client, spinner *ysmrr.Spinner, workerId 
 			"worker: " + strconv.Itoa(workerId) + " error: " + err.Error(),
 		)
 	})
-
 }
 
 func resultsWriter(resultChan chan []string, writeDoneChan chan int) {
